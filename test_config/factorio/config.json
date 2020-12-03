@@ -1,0 +1,64 @@
+{
+	"label": "factorio",
+	"id": "factorio",
+	"desc": "a factory building game",
+	"maintainers": [ "marius851000" ],
+	"configurations": [
+		{
+			"label": "release type",
+			"id": "releaseType",
+			"kind": {
+				"type": "RadioButton",
+				"default": "alpha",
+				"possibilities": [
+					{
+						"label": "alpha",
+						"id": "alpha"
+					},
+					{
+						"label": "demo",
+						"id": "demo"
+					}
+				]
+			}
+		},
+		{
+			"label": "install stable version",
+			"id": "stable",
+			"kind": {
+				"type": "Checkbox"
+			}
+		},
+		{
+			"label": "download info",
+			"id": "download_info",
+			"condition": {
+				"type": "Not",
+				"gate": {
+					"type": "KeywordEqual",
+					"keyword": "releaseType",
+					"equal_to": "demo"
+				}
+			},
+			"kind": {
+				"type": "Group",
+				"configurations": [
+					{
+						"id": "username",
+						"label": "Username",
+						"kind": {
+							"type": "Textbox"
+						}
+					},
+					{
+						"id": "token",
+						"label": "Token",
+						"kind": {
+							"type": "Textbox"
+						}
+					}
+				]
+			}
+		}
+	]
+}

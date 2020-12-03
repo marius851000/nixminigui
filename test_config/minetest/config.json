@@ -1,0 +1,6 @@
+{
+	"label": "Minetest",
+	"id": "minetest",
+	"desc": "An open source game with block",
+	"maintainers": [ "beta", "gamma", "alpha" ]
+}
