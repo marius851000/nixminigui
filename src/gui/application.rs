@@ -107,8 +107,11 @@ impl Application for NixMiniGuiApp {
                 self.displayed_section =
                     DisplayedSection::new_progress_report("starting...".into());
             }
-            Message::SetSaveProgress(progress_text) => {
+            Message::SetSaveProgress(Some(progress_text)) => {
                 self.displayed_section = DisplayedSection::new_progress_report(progress_text);
+            },
+            Message::SetSaveProgress(None) => {
+                self.displayed_section = DisplayedSection::new_apply_finished();
             }
             Message::Ignore => (),
             Message::Todo => todo!(),
@@ -156,6 +159,9 @@ pub enum DisplayedSection {
     SaveProgressReport {
         progress_text: String,
     },
+    ApplyFinished {
+        continue_edit_state: button::State,
+    }
 }
 
 impl DisplayedSection {
@@ -202,6 +208,12 @@ impl DisplayedSection {
 
     fn new_progress_report(progress_text: String) -> Self {
         Self::SaveProgressReport { progress_text }
+    }
+
+    fn new_apply_finished() -> Self {
+        Self::ApplyFinished {
+            continue_edit_state: button::State::new(),
+        }
     }
 
     fn view(&mut self) -> Element<Message> {
@@ -306,6 +318,17 @@ impl DisplayedSection {
                 .into(),
             Self::SaveProgressReport { progress_text } => {
                 Text::new(progress_text.to_string()).into()
+            },
+            Self::ApplyFinished {
+                continue_edit_state
+            } => {
+                Column::new()
+                    .push::<Element<_>>(Text::new("application finished successfully".to_string()).into())
+                    .push::<Element<_>>(
+                        Button::new(continue_edit_state, Text::new("continue edit".to_string()))
+                        .on_press(Message::SwitchScreenManageConfig)
+                        .into())
+                    .into()
             }
         }
     }

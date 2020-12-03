@@ -19,7 +19,7 @@ pub enum Message {
     ConfigurePackage(String),
     SetConfiguration(String, String, String), //config key, id, value
     ValidateChange,
-    SetSaveProgress(String),
+    SetSaveProgress(Option<String>),
     Ignore,
     Todo,
 }

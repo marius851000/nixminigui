@@ -22,10 +22,11 @@ struct OngoingSaveProgress {
 enum OngoingSaveProgressKind {
     SaveToConfigFile,
     Finished,
+    Final,
 }
 
 impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
-    type Output = String;
+    type Output = Option<String>;
 
     fn hash(&self, state: &mut H) {
         std::any::TypeId::of::<Self>().hash(state);
@@ -43,11 +44,14 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                     OngoingSaveProgressKind::SaveToConfigFile => {
                         &state.config_manager.save_to_config_file().await;
                         state.kind = OngoingSaveProgressKind::Finished;
-                        Some(("configuration saved".into(), state))
+                        Some((Some("configuration saved".to_string()), state))
                     }
                     OngoingSaveProgressKind::Finished => {
-                        println!("finished");
-                        Some(("async".into(), state))
+                        state.kind = OngoingSaveProgressKind::Final;
+                        Some((None.into(), state))
+                    },
+                    OngoingSaveProgressKind::Final => {
+                        None
                     }
                 }
             },
