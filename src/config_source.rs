@@ -25,6 +25,7 @@ quick_error! {
 /// Store the data from a configuration source. Configuration source is something that can either
 /// be enabled or disabled, with optional additional option. The side effect are configured via a
 /// nix expression.
+#[derive(Clone, Hash)]
 pub struct ConfigSource {
     pub entry: ConfigEntry,
     pub folder_root: PathBuf,
@@ -49,7 +50,7 @@ fn always_false() -> bool {
     false
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Hash)]
 pub struct ConfigEntry {
     /// The config displayed name
     pub label: String,
@@ -71,7 +72,7 @@ pub struct ConfigEntry {
     pub configurations: Vec<Configuration>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Hash)]
 pub struct Configuration {
     /// the displayed name of this configuration
     pub label: String,
@@ -86,7 +87,7 @@ pub struct Configuration {
     pub kind: ConfigurationKind,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Hash)]
 #[serde(tag = "type")]
 pub enum ConfigurationKind {
     /// a checkbox
@@ -114,13 +115,11 @@ impl ConfigurationKind {
     /// need to save anything.
     pub fn default_value(&self) -> Option<String> {
         match self {
-            Self::Checkbox { default } => {
-                Some(if *default {
-                    "true".to_string()
-                } else {
-                    "false".to_string()
-                })
-            }
+            Self::Checkbox { default } => Some(if *default {
+                "true".to_string()
+            } else {
+                "false".to_string()
+            }),
             Self::RadioButton { default, .. } => Some(default.clone()),
             Self::Textbox { default, .. } => Some(default.clone()),
             Self::Group { .. } => None,
@@ -128,7 +127,7 @@ impl ConfigurationKind {
     }
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Hash)]
 pub struct RadioButtonPosibility {
     pub label: String,
     pub id: String,

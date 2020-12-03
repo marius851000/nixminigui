@@ -4,9 +4,6 @@ pub use application::{Flags, NixMiniGuiApp};
 mod displayed_configuration;
 pub use displayed_configuration::DisplayedConfiguration;
 
-
-
-
 use crate::config_manager::ConfigManager;
 pub struct AppSetting {
     pub config_manager: ConfigManager,
@@ -21,6 +18,8 @@ pub enum Message {
     DisableConfig(String),
     ConfigurePackage(String),
     SetConfiguration(String, String, String), //config key, id, value
+    ValidateChange,
+    SetSaveProgress(String),
     Ignore,
     Todo,
 }

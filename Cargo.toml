@@ -10,4 +10,7 @@ edition = "2018"
 serde = { version = "1.0.117", features = [ "derive" ] }
 serde_json = "1.0.59"
 quick-error = "1.2.3" #TODO: use someerror instead
-iced = { path = "../iced" }
+iced = "0.2"
+iced_futures = "0.2"
+futures = "0.3.8"
+async-std = "1.7.0"

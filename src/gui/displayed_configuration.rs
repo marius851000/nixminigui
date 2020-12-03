@@ -1,7 +1,7 @@
-use crate::config_source::{RadioButtonPosibility, ConfigurationKind, Configuration, ConfigSource};
 use crate::config_manager::UserConfiguration;
+use crate::config_source::{ConfigSource, Configuration, ConfigurationKind, RadioButtonPosibility};
 use crate::gui::Message;
-use iced::{text_input, Text, Column, Checkbox, TextInput, Element, Rule};
+use iced::{text_input, Checkbox, Column, Element, Rule, Text, TextInput};
 
 pub enum DisplayedConfiguration {
     Group {

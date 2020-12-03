@@ -1,7 +1,7 @@
 use crate::config_manager::UserConfiguration;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Hash)]
 #[serde(tag = "type")]
 pub enum Gate {
     Not { gate: Box<Gate> },

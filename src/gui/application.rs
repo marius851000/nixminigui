@@ -4,11 +4,13 @@ use crate::gui::DisplayedConfiguration;
 
 use iced::Container;
 use iced::Length;
+
+use crate::gui::{AppSetting, Message};
+use iced::Subscription;
 use iced::{
     button, executor, scrollable, Application, Button, Column, Command, Element, Row, Rule,
     Scrollable, Text,
 };
-use crate::gui::{AppSetting, Message};
 
 pub struct NixMiniGuiApp {
     displayed_section: DisplayedSection,
@@ -101,6 +103,13 @@ impl Application for NixMiniGuiApp {
                     }
                 }
             }
+            Message::ValidateChange => {
+                self.displayed_section =
+                    DisplayedSection::new_progress_report("starting...".into());
+            }
+            Message::SetSaveProgress(progress_text) => {
+                self.displayed_section = DisplayedSection::new_progress_report(progress_text);
+            }
             Message::Ignore => (),
             Message::Todo => todo!(),
         }
@@ -109,6 +118,16 @@ impl Application for NixMiniGuiApp {
 
     fn view(&mut self) -> Element<Self::Message> {
         self.displayed_section.view().into()
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        match &self.displayed_section {
+            DisplayedSection::SaveProgressReport { .. } => {
+                Subscription::from_recipe(self.config_manager.save_and_apply())
+                    .map(Message::SetSaveProgress)
+            }
+            _ => Subscription::none(),
+        }
     }
 }
 
@@ -125,6 +144,7 @@ pub enum DisplayedSection {
         enabled_config: Vec<ButtonSelectableConfig>,
         selected: Option<SelectConfigSelected>,
         uninstall_button_state: button::State,
+        apply_change_state: button::State,
     },
     ChooseNewConfig {
         selectable_config: Vec<ButtonSelectableConfig>,
@@ -132,6 +152,9 @@ pub enum DisplayedSection {
         cancel_button_state: button::State,
         install_button_state: button::State,
         selected_package: Option<String>,
+    },
+    SaveProgressReport {
+        progress_text: String,
     },
 }
 
@@ -173,7 +196,12 @@ impl DisplayedSection {
                 .collect(),
             selected: None,
             uninstall_button_state: button::State::new(),
+            apply_change_state: button::State::new(),
         }
+    }
+
+    fn new_progress_report(progress_text: String) -> Self {
+        Self::SaveProgressReport { progress_text }
     }
 
     fn view(&mut self) -> Element<Message> {
@@ -183,6 +211,7 @@ impl DisplayedSection {
                 enabled_config,
                 selected,
                 uninstall_button_state,
+                apply_change_state,
             } => Row::new()
                 .push(
                     Column::new()
@@ -227,7 +256,11 @@ impl DisplayedSection {
                                 .height(Length::Fill)
                                 .into()
                         })
-                        .push::<Element<_>>(Text::new("TODO: button validate change").into()),
+                        .push::<Element<_>>(
+                            Button::new(apply_change_state, Text::new("apply changes"))
+                                .on_press(Message::ValidateChange)
+                                .into(),
+                        ),
                 )
                 .into(),
             Self::ChooseNewConfig {
@@ -271,6 +304,9 @@ impl DisplayedSection {
                         ),
                 )
                 .into(),
+            Self::SaveProgressReport { progress_text } => {
+                Text::new(progress_text.to_string()).into()
+            }
         }
     }
 }
