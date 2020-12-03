@@ -110,18 +110,20 @@ pub enum ConfigurationKind {
 }
 
 impl ConfigurationKind {
-    pub fn default_value(&self) -> String {
+    /// return the default value of this configuration kind, as a string. return none if it doesn't
+    /// need to save anything.
+    pub fn default_value(&self) -> Option<String> {
         match self {
             Self::Checkbox { default } => {
-                if *default {
+                Some(if *default {
                     "true".to_string()
                 } else {
                     "false".to_string()
-                }
+                })
             }
-            Self::RadioButton { default, .. } => default.clone(),
-            Self::Textbox { default, .. } => default.clone(),
-            Self::Group { .. } => String::new(),
+            Self::RadioButton { default, .. } => Some(default.clone()),
+            Self::Textbox { default, .. } => Some(default.clone()),
+            Self::Group { .. } => None,
         }
     }
 }

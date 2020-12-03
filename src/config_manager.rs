@@ -33,9 +33,11 @@ impl ConfigManager {
         let entry = &mut self.configs[key];
         for configuration in &entry.0.entry.configurations {
             if !entry.2.contains_key(&configuration.id) {
-                entry
-                    .2
-                    .insert(configuration.id.clone(), configuration.kind.default_value());
+                if let Some(value) = configuration.kind.default_value() {
+                    entry
+                        .2
+                        .insert(configuration.id.clone(), value);
+                }
             }
         }
     }
