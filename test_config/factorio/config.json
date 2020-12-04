@@ -60,5 +60,15 @@
 				]
 			}
 		}
-	]
+	],
+	"effects": {
+		"inputs": {
+			"pkgs": {
+				"distant": "nixpkgs"
+			}
+		},
+		"package": {
+			"path": "./package.nix"
+		}
+	}
 }

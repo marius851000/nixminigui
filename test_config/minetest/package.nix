@@ -1,3 +1,3 @@
 { pkgs, ... }:
 
-(import pkgs {}).minetest
+pkgs.minetest

@@ -5,7 +5,9 @@
 	"maintainers": [ "beta", "gamma", "alpha" ],
 	"effects": {
 		"inputs": {
-			"pkgs": "nixpkgs"
+			"pkgs": {
+				"distant": "nixpkgs"
+			}
 		},
 		"package": {
 			"path": "./package.nix"

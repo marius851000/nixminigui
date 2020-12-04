@@ -1,8 +1,15 @@
 use crate::config_source::{ConfigSource, LoadConfigError};
+
+use crate::distant_input::DistantInput;
+
+use crate::inputs_list::InputDeclaration;
+use crate::inputs_list::InputsList;
+
+use crate::nixtool::escape_string;
+use crate::nixtool::generate_dict_from_btreemap;
 use crate::nixtool::to_nix_vec;
 use crate::ongoing_save::OngoingSave;
 use crate::saved_config::SavedConfig;
-
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -162,17 +169,61 @@ impl ConfigManager {
     }
 
     fn generate_nix_package_file(&self) -> String {
-        format!(
-            "{{}}:\n{}",
-            to_nix_vec(
-                &self
-                    .enabled_entry()
+        let mut packages_string: Vec<String> = Vec::new();
+        let mut inputs_list = InputsList::new();
+        for dependancy in self.enabled_entry().iter() {
+            if let Some(package) = &dependancy.0.entry.effects.package {
+                let dependancies_declaration = dependancy
+                    .0
+                    .entry
+                    .effects
+                    .inputs
                     .iter()
-                    .filter_map(|(config_source, _, _)| {
-                        self.generate_package_expression(&config_source.entry.id)
+                    .map(|(k, v)| {
+                        (
+                            k,
+                            InputDeclaration {
+                                distant: DistantInput::new(
+                                    v.distant.to_string(),
+                                    &dependancy.0.folder_root,
+                                ),
+                                depend_on: v.dependancies.clone(),
+                            },
+                        )
                     })
-                    .collect::<Vec<String>>()
-            )
+                    .fold(BTreeMap::new(), |mut map, (k, v)| {
+                        map.insert(k.to_string(), v);
+                        map
+                    });
+                let inputs = inputs_list.add_group(dependancies_declaration);
+                let package_distant =
+                    DistantInput::new(package.path.to_string(), &dependancy.0.folder_root);
+                let mut package_inputs = inputs.iter().fold(BTreeMap::new(), |mut map, (k, v)| {
+                    map.insert(escape_string(k), format!("inputs.{}", v));
+                    map
+                });
+                package_inputs.insert(
+                    "user_config".into(),
+                    generate_dict_from_btreemap(&dependancy.2.iter().fold(
+                        BTreeMap::new(),
+                        |mut map, (k, v)| {
+                            map.insert(escape_string(k), escape_string(v));
+                            map
+                        },
+                    )),
+                );
+                let package_expression = format!(
+                    "(import {} {})",
+                    package_distant.generate_nix_expression(),
+                    generate_dict_from_btreemap(&package_inputs)
+                );
+                packages_string.push(package_expression);
+            }
+        }
+        format!(
+            "{{}}:\nlet\ninputs = rec {};\nin\n{}",
+            generate_dict_from_btreemap(&inputs_list.to_inputs()),
+            to_nix_vec(&packages_string)
         )
     }
 
@@ -188,14 +239,5 @@ impl ConfigManager {
                 self.configs.push((None, *enabled, config.clone()));
             }
         }
-    }
-
-    pub fn generate_package_expression(&self, key: &str) -> Option<String> {
-        let package = self.get_config(key).unwrap();
-        package
-            .0
-            .entry
-            .effects
-            .generate_package(package.2, &package.0.folder_root)
     }
 }
