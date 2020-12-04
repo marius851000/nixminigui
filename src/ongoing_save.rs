@@ -21,6 +21,7 @@ struct OngoingSaveProgress {
 
 enum OngoingSaveProgressKind {
     SaveToConfigFile,
+    SavePackageFile,
     Finished,
     Final,
 }
@@ -43,16 +44,19 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                 match state.kind {
                     OngoingSaveProgressKind::SaveToConfigFile => {
                         &state.config_manager.save_to_config_file().await;
-                        state.kind = OngoingSaveProgressKind::Finished;
+                        state.kind = OngoingSaveProgressKind::SavePackageFile;
                         Some((Some("configuration saved".to_string()), state))
+                    }
+                    OngoingSaveProgressKind::SavePackageFile => {
+                        &state.config_manager.write_nix_package_file().await;
+                        state.kind = OngoingSaveProgressKind::Finished;
+                        Some((Some("wrote nix package file".to_string()), state))
                     }
                     OngoingSaveProgressKind::Finished => {
                         state.kind = OngoingSaveProgressKind::Final;
                         Some((None.into(), state))
-                    },
-                    OngoingSaveProgressKind::Final => {
-                        None
                     }
+                    OngoingSaveProgressKind::Final => None,
                 }
             },
         ))

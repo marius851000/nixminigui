@@ -1,10 +1,18 @@
+use crate::config_manager::UserConfiguration;
+
 use crate::gate::Gate;
 use serde::Deserialize;
 
+use std::collections::BTreeMap;
 use std::fs::File;
 
 use std::io;
+
+use std::path::Path;
 use std::path::PathBuf;
+
+use crate::input_distant::DistantInputs;
+use crate::nixtool::{escape_string, generate_dict_from_btreemap};
 
 const CONFIG_FILE_NAME: &str = "config.json";
 
@@ -70,6 +78,8 @@ pub struct ConfigEntry {
     /// the list of configuration of this configuration source
     #[serde(default = "Vec::new")]
     pub configurations: Vec<Configuration>,
+    #[serde(default = "Effects::default")]
+    pub effects: Effects,
 }
 
 #[derive(Deserialize, Debug, Clone, Hash)]
@@ -147,5 +157,68 @@ impl ConfigEntry {
             }
         })?;
         Ok(deserialized_entry)
+    }
+}
+
+#[derive(Default, Deserialize, Hash, Debug, Clone)]
+pub struct Effects {
+    #[serde(default = "BTreeMap::default")]
+    pub inputs: BTreeMap<String, String>,
+    pub package: Option<PackageEffect>,
+}
+
+#[derive(Deserialize, Hash, Debug, Clone)]
+pub struct PackageEffect {
+    path: String,
+}
+
+impl Effects {
+    fn generate_input(
+        &self,
+        user_configuration: &UserConfiguration,
+        base_directory: &Path,
+    ) -> String {
+        let mut inputs = self
+            .inputs
+            .iter()
+            .map(|(k, v)| {
+                (
+                    escape_string(k),
+                    DistantInputs::new(v.to_string(), base_directory).generate_nix_expression(),
+                )
+            })
+            .fold(BTreeMap::new(), |mut map, (k, v)| {
+                map.insert(k, v);
+                map
+            });
+        inputs.insert(
+            "\"params\"".to_string(),
+            generate_dict_from_btreemap(&user_configuration.iter().fold(
+                BTreeMap::new(),
+                |mut map, (k, v)| {
+                    map.insert(escape_string(k), escape_string(v));
+                    map
+                },
+            )),
+        );
+        generate_dict_from_btreemap(&inputs)
+    }
+
+    pub fn generate_package(
+        &self,
+        user_configuration: &UserConfiguration,
+        base_directory: &Path,
+    ) -> Option<String> {
+        if let Some(package) = &self.package {
+            let inputs = self.generate_input(user_configuration, base_directory);
+            let package_input = DistantInputs::new(package.path.clone(), base_directory);
+            Some(format!(
+                "( import {} {})",
+                package_input.generate_nix_expression(),
+                inputs
+            ))
+        } else {
+            None
+        }
     }
 }

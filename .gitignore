@@ -1,2 +1,4 @@
 target/
 nixminigui.json
+result*
+packages.nix

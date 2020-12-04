@@ -109,7 +109,7 @@ impl Application for NixMiniGuiApp {
             }
             Message::SetSaveProgress(Some(progress_text)) => {
                 self.displayed_section = DisplayedSection::new_progress_report(progress_text);
-            },
+            }
             Message::SetSaveProgress(None) => {
                 self.displayed_section = DisplayedSection::new_apply_finished();
             }
@@ -161,7 +161,7 @@ pub enum DisplayedSection {
     },
     ApplyFinished {
         continue_edit_state: button::State,
-    }
+    },
 }
 
 impl DisplayedSection {
@@ -318,18 +318,19 @@ impl DisplayedSection {
                 .into(),
             Self::SaveProgressReport { progress_text } => {
                 Text::new(progress_text.to_string()).into()
-            },
-            Self::ApplyFinished {
-                continue_edit_state
-            } => {
-                Column::new()
-                    .push::<Element<_>>(Text::new("application finished successfully".to_string()).into())
-                    .push::<Element<_>>(
-                        Button::new(continue_edit_state, Text::new("continue edit".to_string()))
-                        .on_press(Message::SwitchScreenManageConfig)
-                        .into())
-                    .into()
             }
+            Self::ApplyFinished {
+                continue_edit_state,
+            } => Column::new()
+                .push::<Element<_>>(
+                    Text::new("application finished successfully".to_string()).into(),
+                )
+                .push::<Element<_>>(
+                    Button::new(continue_edit_state, Text::new("continue edit".to_string()))
+                        .on_press(Message::SwitchScreenManageConfig)
+                        .into(),
+                )
+                .into(),
         }
     }
 }

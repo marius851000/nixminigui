@@ -1,4 +1,5 @@
 use crate::config_source::{ConfigSource, LoadConfigError};
+use crate::nixtool::to_nix_vec;
 use crate::ongoing_save::OngoingSave;
 use crate::saved_config::SavedConfig;
 
@@ -12,14 +13,16 @@ pub struct ConfigManager {
     configs: Vec<(Option<ConfigSource>, bool, UserConfiguration)>, //source, enabled, additional configuration
     key_to_id: BTreeMap<String, usize>,
     user_config_path: PathBuf,
+    package_nix_path: PathBuf,
 }
 
 impl ConfigManager {
-    pub fn new(user_config_path: PathBuf) -> Self {
+    pub fn new(user_config_path: PathBuf, package_nix_path: PathBuf) -> Self {
         Self {
             configs: Vec::new(),
             key_to_id: BTreeMap::new(),
             user_config_path,
+            package_nix_path,
         }
     }
 
@@ -142,12 +145,35 @@ impl ConfigManager {
                 key.to_string(),
                 (self.configs[*uid].1, self.configs[*uid].2.clone()),
             );
-        };
+        }
         let save_content = serde_json::to_vec(&saved_config).unwrap();
         use async_std::fs::File;
         use async_std::prelude::*;
         let mut file = File::create(&self.user_config_path).await.unwrap();
         file.write_all(&save_content).await.unwrap();
+    }
+
+    pub async fn write_nix_package_file(&self) {
+        let package_file = self.generate_nix_package_file();
+        use async_std::fs::File;
+        use async_std::prelude::*;
+        let mut file = File::create(&self.package_nix_path).await.unwrap();
+        file.write_all(package_file.as_bytes()).await.unwrap();
+    }
+
+    fn generate_nix_package_file(&self) -> String {
+        format!(
+            "{{}}:\n{}",
+            to_nix_vec(
+                &self
+                    .enabled_entry()
+                    .iter()
+                    .filter_map(|(config_source, _, _)| {
+                        self.generate_package_expression(&config_source.entry.id)
+                    })
+                    .collect::<Vec<String>>()
+            )
+        )
     }
 
     pub fn load_config(&mut self) {
@@ -162,5 +188,14 @@ impl ConfigManager {
                 self.configs.push((None, *enabled, config.clone()));
             }
         }
+    }
+
+    pub fn generate_package_expression(&self, key: &str) -> Option<String> {
+        let package = self.get_config(key).unwrap();
+        package
+            .0
+            .entry
+            .effects
+            .generate_package(package.2, &package.0.folder_root)
     }
 }

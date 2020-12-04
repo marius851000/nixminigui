@@ -2,5 +2,13 @@
 	"label": "Minetest",
 	"id": "minetest",
 	"desc": "An open source game with block",
-	"maintainers": [ "beta", "gamma", "alpha" ]
+	"maintainers": [ "beta", "gamma", "alpha" ],
+	"effects": {
+		"inputs": {
+			"pkgs": "nixpkgs"
+		},
+		"package": {
+			"path": "./package.nix"
+		}
+	}
 }
