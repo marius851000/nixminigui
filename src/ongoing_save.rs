@@ -1,7 +1,11 @@
 use crate::config_manager::ConfigManager;
+
+use crate::inputs_set::InputsSet;
 use futures::stream::unfold;
 use futures::stream::BoxStream;
 use iced_futures::subscription::Recipe;
+
+use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 
 pub struct OngoingSave {
@@ -21,7 +25,12 @@ struct OngoingSaveProgress {
 
 enum OngoingSaveProgressKind {
     SaveToConfigFile,
-    SavePackageFile,
+    GenerateInputsSet,
+    EnsureFixedLoaded(
+        (InputsSet, BTreeMap<String, BTreeMap<String, String>>),
+        usize,
+    ),
+    SavePackageFile((InputsSet, BTreeMap<String, BTreeMap<String, String>>)),
     Finished,
     Final,
 }
@@ -44,11 +53,46 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                 match state.kind {
                     OngoingSaveProgressKind::SaveToConfigFile => {
                         state.config_manager.save_to_config_file().await;
-                        state.kind = OngoingSaveProgressKind::SavePackageFile;
+                        state.kind = OngoingSaveProgressKind::GenerateInputsSet;
                         Some((Some("configuration saved".to_string()), state))
                     }
-                    OngoingSaveProgressKind::SavePackageFile => {
-                        state.config_manager.write_nix_package_file().await;
+                    OngoingSaveProgressKind::GenerateInputsSet => {
+                        let inputs_set =
+                            state.config_manager.generate_inputs_set_for_enabled().await;
+                        state.kind = OngoingSaveProgressKind::EnsureFixedLoaded(inputs_set, 0);
+                        Some((Some("inputs set generated".to_string()), state))
+                    }
+                    OngoingSaveProgressKind::EnsureFixedLoaded(
+                        (inputs_set, link_to_name),
+                        mut position,
+                    ) => {
+                        state
+                            .config_manager
+                            .ensure_fixed_is_loaded(&inputs_set.dependancies[position].distant)
+                            .await;
+                        let status = format!(
+                            "finished to load fixed input from {:?}",
+                            &inputs_set.dependancies[position].distant
+                        );
+                        position += 1;
+                        if inputs_set.dependancies.len() >= position {
+                            state.kind = OngoingSaveProgressKind::SavePackageFile((
+                                inputs_set,
+                                link_to_name,
+                            ));
+                        } else {
+                            state.kind = OngoingSaveProgressKind::EnsureFixedLoaded(
+                                (inputs_set, link_to_name),
+                                position,
+                            );
+                        }
+                        Some((Some(status), state))
+                    }
+                    OngoingSaveProgressKind::SavePackageFile((inputs_set, link_to_name)) => {
+                        state
+                            .config_manager
+                            .write_nix_package_file(&inputs_set, &link_to_name)
+                            .await;
                         state.kind = OngoingSaveProgressKind::Finished;
                         Some((Some("wrote nix package file".to_string()), state))
                     }

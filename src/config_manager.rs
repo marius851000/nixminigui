@@ -1,3 +1,4 @@
+use crate::cached_fixed_input::CachedFixedInput;
 use crate::config_source::{ConfigSource, LoadConfigError};
 
 use crate::input::UpdatableInput;
@@ -20,6 +21,7 @@ pub struct ConfigManager {
     key_to_id: BTreeMap<String, usize>,
     user_config_path: PathBuf,
     package_nix_path: PathBuf,
+    cached_fixed_input: CachedFixedInput,
 }
 
 //TODO: timed cache for updatable_input (key: the updateinput, out: the fixedinput)
@@ -31,6 +33,7 @@ impl ConfigManager {
             key_to_id: BTreeMap::new(),
             user_config_path,
             package_nix_path,
+            cached_fixed_input: CachedFixedInput::new(),
         }
     }
 
@@ -159,48 +162,36 @@ impl ConfigManager {
         file.write_all(&save_content).await.unwrap();
     }
 
-    pub async fn write_nix_package_file(&self) {
-        let package_file = self.generate_nix_package_file().await;
+    pub async fn write_nix_package_file(
+        &self,
+        input_set: &InputsSet,
+        link_to_name: &BTreeMap<String, BTreeMap<String, String>>,
+    ) {
+        let package_file = self
+            .generate_nix_package_file(input_set, link_to_name)
+            .await;
         use async_std::fs::File;
         use async_std::prelude::*;
         let mut file = File::create(&self.package_nix_path).await.unwrap();
         file.write_all(package_file.as_bytes()).await.unwrap();
     }
 
-    async fn generate_nix_package_file(&self) -> String {
+    pub async fn generate_nix_package_file(
+        &self,
+        input_set: &InputsSet,
+        link_to_name: &BTreeMap<String, BTreeMap<String, String>>,
+    ) -> String {
         let mut packages_string: Vec<String> = Vec::new();
-        let mut inputs_list = InputsSet::new();
         for dependancy in self.enabled_entry().iter() {
             if let Some(package) = &dependancy.0.entry.effects.package {
-                let dependancies_declaration = dependancy
-                    .0
-                    .entry
-                    .effects
-                    .inputs
-                    .iter()
-                    .map(|(k, v)| {
-                        (
-                            k,
-                            InputDeclaration {
-                                distant: UpdatableInput::new(
-                                    v.distant.to_string(),
-                                    &dependancy.0.folder_root,
-                                ),
-                                depend_on: v.dependancies.clone(),
-                            },
-                        )
-                    })
-                    .fold(BTreeMap::new(), |mut map, (k, v)| {
-                        map.insert(k.to_string(), v);
-                        map
-                    });
-                let inputs = inputs_list.add_group(dependancies_declaration);
-                let package_distant =
-                    UpdatableInput::new(package.path.to_string(), &dependancy.0.folder_root);
-                let mut package_inputs = inputs.iter().fold(BTreeMap::new(), |mut map, (k, v)| {
+                let id = &dependancy.0.entry.id;
+                let link = link_to_name.get(id).unwrap();
+
+                let mut package_inputs = link.iter().fold(BTreeMap::new(), |mut map, (k, v)| {
                     map.insert(escape_string(k), format!("inputs.{}", v));
                     map
                 });
+
                 package_inputs.insert(
                     "user_config".into(),
                     generate_dict_from_btreemap(&dependancy.2.iter().fold(
@@ -211,6 +202,8 @@ impl ConfigManager {
                         },
                     )),
                 );
+                let package_distant =
+                    UpdatableInput::new(package.path.to_string(), &dependancy.0.folder_root);
                 let package_expression = format!(
                     "(import {} {})",
                     package_distant.get_latest().await.generate_nix_fetch(),
@@ -219,11 +212,73 @@ impl ConfigManager {
                 packages_string.push(package_expression);
             }
         }
+        let mut inputs_list = BTreeMap::new();
+        for (count, dependancy) in input_set.dependancies.iter().enumerate() {
+            let deps_of_dep =
+                dependancy
+                    .dependancies
+                    .iter()
+                    .fold(BTreeMap::new(), |mut map, (k, v)| {
+                        map.insert(k.to_string(), input_set.get_name(*v));
+                        map
+                    });
+            inputs_list.insert(
+                input_set.get_name(count),
+                format!(
+                    "import {} {}",
+                    self.cached_fixed_input
+                        .get(&dependancy.distant)
+                        .unwrap()
+                        .generate_nix_fetch(),
+                    generate_dict_from_btreemap(&deps_of_dep)
+                ),
+            );
+        }
         format!(
             "{{}}:\nlet\ninputs = rec {};\nin\n{}",
-            generate_dict_from_btreemap(&inputs_list.to_inputs_latest().await),
+            generate_dict_from_btreemap(&inputs_list),
             to_nix_vec(&packages_string)
         )
+    }
+
+    pub async fn generate_inputs_set_for_enabled(
+        &self,
+    ) -> (InputsSet, BTreeMap<String, BTreeMap<String, String>>) {
+        let mut inputs_set = InputsSet::new();
+        let mut inputs = BTreeMap::new();
+        for dependancy in self.enabled_entry().iter() {
+            let dependancies_declaration = dependancy
+                .0
+                .entry
+                .effects
+                .inputs
+                .iter()
+                .map(|(k, v)| {
+                    (
+                        k,
+                        InputDeclaration {
+                            distant: UpdatableInput::new(
+                                v.distant.to_string(),
+                                &dependancy.0.folder_root,
+                            ),
+                            depend_on: v.dependancies.clone(),
+                        },
+                    )
+                })
+                .fold(BTreeMap::new(), |mut map, (k, v)| {
+                    map.insert(k.to_string(), v);
+                    map
+                });
+            inputs.insert(
+                dependancy.0.entry.id.to_string(),
+                inputs_set.add_group(dependancies_declaration),
+            );
+        }
+        (inputs_set, inputs)
+    }
+
+    pub async fn ensure_fixed_is_loaded(&mut self, input: &UpdatableInput) {
+        self.cached_fixed_input.get_or_insert_latest(input).await;
     }
 
     pub fn load_config(&mut self) {

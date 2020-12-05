@@ -1,6 +1,4 @@
 use crate::input::UpdatableInput;
-
-use crate::nixtool::generate_dict_from_btreemap;
 use std::collections::BTreeMap;
 
 const SOURCE_PREFIX: &str = "source_";
@@ -12,14 +10,14 @@ pub struct InputDeclaration {
 }
 
 #[derive(PartialOrd, PartialEq, Eq, Ord)]
-struct InputLoaded {
-    distant: UpdatableInput,
-    dependancies: BTreeMap<String, usize>,
+pub struct InputLoaded {
+    pub distant: UpdatableInput,
+    pub dependancies: BTreeMap<String, usize>,
 }
 
 #[derive(Default)]
 pub struct InputsSet {
-    dependancies: Vec<InputLoaded>,
+    pub dependancies: Vec<InputLoaded>,
 }
 
 //TODO: an id to name that can help do more human readible format (ensure they stay unique even if new data are added afterward)
@@ -85,24 +83,7 @@ impl InputsSet {
         }
     }
 
-    pub async fn to_inputs_latest(&self) -> BTreeMap<String, String> {
-        let mut result = BTreeMap::new();
-        for (count, dep) in self.dependancies.iter().enumerate() {
-            result.insert(
-                format!("{}{}", SOURCE_PREFIX, count),
-                format!(
-                    "import {} {}",
-                    dep.distant.get_latest().await.generate_nix_fetch(),
-                    generate_dict_from_btreemap(&dep.dependancies.iter().fold(
-                        BTreeMap::new(),
-                        |mut map, (k, v)| {
-                            map.insert(k.to_string(), format!("{}{}", SOURCE_PREFIX, v));
-                            map
-                        }
-                    ))
-                ),
-            );
-        }
-        result
+    pub fn get_name(&self, id: usize) -> String {
+        format!("{}{}", SOURCE_PREFIX, id)
     }
 }

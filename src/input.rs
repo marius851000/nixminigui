@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::nixtool::escape_string;
 
-#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord)]
+#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug)]
 pub enum UpdatableInput {
     //Git(repo, ref)
     LocalPath(PathBuf),
@@ -38,7 +38,7 @@ impl UpdatableInput {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Hash, Clone)]
 pub enum FixedInput {
     /// A path to a local folder or file. The file/folder itself is not fixed !
     LocalPath(String),
