@@ -120,7 +120,7 @@ impl Application for NixMiniGuiApp {
     }
 
     fn view(&mut self) -> Element<Self::Message> {
-        self.displayed_section.view().into()
+        self.displayed_section.view()
     }
 
     fn subscription(&self) -> Subscription<Message> {
@@ -306,7 +306,7 @@ impl DisplayedSection {
                 .push(
                     Column::new()
                         .push::<Element<_>>(if let Some(info) = selected_info {
-                            info.view().into()
+                            info.view()
                         } else {
                             Text::new("TODO: message for when no config are selected").into()
                         })
@@ -384,7 +384,7 @@ impl DisplayedConfigInfo {
             column = column.push(Text::new(desc.to_string()));
         };
 
-        if self.maintainers.len() != 0 {
+        if !self.maintainers.is_empty() {
             column = column.push({
                 let mut row = Row::new().push(Text::new("maintainers :")).spacing(10);
                 for maintainer in &self.maintainers {

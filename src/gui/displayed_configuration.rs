@@ -41,7 +41,7 @@ impl DisplayedConfiguration {
 
     fn new_top_level_group(
         conf_key: String,
-        configs: &Vec<Configuration>,
+        configs: &[Configuration],
         status: &UserConfiguration,
     ) -> Self {
         Self::Group {
@@ -69,7 +69,7 @@ impl DisplayedConfiguration {
             } => Self::RadioButton {
                 label: config.label.clone(),
                 id: config.id.clone(),
-                key: conf_key.clone(),
+                key: conf_key,
                 possibilities: possibilities.clone(),
                 selected: status
                     .get(&config.id)
@@ -79,7 +79,7 @@ impl DisplayedConfiguration {
             ConfigurationKind::Checkbox { default } => Self::Checkbox {
                 label: config.label.clone(),
                 id: config.id.clone(),
-                key: conf_key.clone(),
+                key: conf_key,
                 enabled: status
                     .get(&config.id)
                     .map(|x| x == "true")
@@ -88,16 +88,16 @@ impl DisplayedConfiguration {
             ConfigurationKind::Textbox { default } => Self::Textbox {
                 label: config.label.clone(),
                 id: config.id.clone(),
-                key: conf_key.clone(),
+                key: conf_key,
                 entered: status
                     .get(&config.id)
-                    .map(|x| x.clone())
-                    .unwrap_or(default.to_string()),
+                    .cloned()
+                    .unwrap_or_else(|| default.to_string()),
                 state: text_input::State::new(),
                 placeholder: default.to_string(),
             },
             ConfigurationKind::Group { configurations } => {
-                let conf_key_clone = conf_key.clone();
+                let conf_key_clone = conf_key;
                 Self::Group {
                     configs: configurations
                         .iter()
@@ -150,7 +150,7 @@ impl DisplayedConfiguration {
             }
             Self::Checkbox { enabled, id, .. } => {
                 if let Some(e) = status.get(id) {
-                    *enabled = if e == "true" { true } else { false };
+                    *enabled = e == "true";
                 };
             }
             Self::Textbox { entered, id, .. } => {
@@ -174,7 +174,7 @@ impl DisplayedConfiguration {
                     if count != 0 {
                         childrens.push(Rule::horizontal(10).into())
                     }
-                    childrens.push(config.view().into())
+                    childrens.push(config.view())
                 }
                 Column::with_children(childrens).into()
             }
@@ -189,24 +189,22 @@ impl DisplayedConfiguration {
                     Column::new().push::<Element<_>>(Text::new(format!("{} :", label)).into());
                 for possibility in possibilities {
                     let checked = &possibility.id == selected;
-                    column = column
-                        .push::<Element<_>>(if checked {
-                            Checkbox::new(checked, possibility.label.clone(), |_| Message::Ignore)
-                                .into()
-                        } else {
-                            let key_clone = key.clone();
-                            let id_clone = id.clone();
-                            let value_clone = possibility.id.clone();
-                            Checkbox::new(checked, possibility.label.clone(), move |_| {
-                                Message::SetConfiguration(
-                                    (&key_clone).to_string(),
-                                    (&id_clone).to_string(),
-                                    (&value_clone).to_string(),
-                                )
-                            })
+                    column = column.push::<Element<_>>(if checked {
+                        Checkbox::new(checked, possibility.label.clone(), |_| Message::Ignore)
                             .into()
+                    } else {
+                        let key_clone = key.clone();
+                        let id_clone = id.clone();
+                        let value_clone = possibility.id.clone();
+                        Checkbox::new(checked, possibility.label.clone(), move |_| {
+                            Message::SetConfiguration(
+                                (&key_clone).to_string(),
+                                (&id_clone).to_string(),
+                                (&value_clone).to_string(),
+                            )
                         })
-                        .into();
+                        .into()
+                    });
                 }
                 column.into()
             }
@@ -222,7 +220,7 @@ impl DisplayedConfiguration {
                     Message::SetConfiguration(
                         (&key_clone).to_string(),
                         (&id_clone).to_string(),
-                        if s == true {
+                        if s {
                             "true".to_string()
                         } else {
                             "false".to_string()

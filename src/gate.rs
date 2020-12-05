@@ -31,7 +31,7 @@ impl Gate {
                         return false;
                     };
                 }
-                return true;
+                true
             }
             Self::Or { gates } => {
                 for gate in gates {
@@ -39,7 +39,7 @@ impl Gate {
                         return true;
                     };
                 }
-                return false;
+                false
             }
             Self::KeywordEqual { keyword, equal_to } => {
                 configuration.get(keyword).unwrap() == equal_to

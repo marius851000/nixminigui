@@ -1,9 +1,8 @@
 use crate::config_source::{ConfigSource, LoadConfigError};
 
-use crate::distant_input::DistantInput;
+use crate::input::UpdatableInput;
 
-use crate::inputs_list::InputDeclaration;
-use crate::inputs_list::InputsList;
+use crate::inputs_set::{InputDeclaration, InputsSet};
 
 use crate::nixtool::escape_string;
 use crate::nixtool::generate_dict_from_btreemap;
@@ -22,6 +21,8 @@ pub struct ConfigManager {
     user_config_path: PathBuf,
     package_nix_path: PathBuf,
 }
+
+//TODO: timed cache for updatable_input (key: the updateinput, out: the fixedinput)
 
 impl ConfigManager {
     pub fn new(user_config_path: PathBuf, package_nix_path: PathBuf) -> Self {
@@ -127,9 +128,7 @@ impl ConfigManager {
     pub fn disable_config(&mut self, key: &str) {
         let to_change = self.get_config_mut(key);
         if let Some(config_source) = &to_change.0 {
-            if config_source.entry.always_enabled {
-                return;
-            } else {
+            if !config_source.entry.always_enabled {
                 to_change.1 = false;
             }
         } else {
@@ -161,16 +160,16 @@ impl ConfigManager {
     }
 
     pub async fn write_nix_package_file(&self) {
-        let package_file = self.generate_nix_package_file();
+        let package_file = self.generate_nix_package_file().await;
         use async_std::fs::File;
         use async_std::prelude::*;
         let mut file = File::create(&self.package_nix_path).await.unwrap();
         file.write_all(package_file.as_bytes()).await.unwrap();
     }
 
-    fn generate_nix_package_file(&self) -> String {
+    async fn generate_nix_package_file(&self) -> String {
         let mut packages_string: Vec<String> = Vec::new();
-        let mut inputs_list = InputsList::new();
+        let mut inputs_list = InputsSet::new();
         for dependancy in self.enabled_entry().iter() {
             if let Some(package) = &dependancy.0.entry.effects.package {
                 let dependancies_declaration = dependancy
@@ -183,7 +182,7 @@ impl ConfigManager {
                         (
                             k,
                             InputDeclaration {
-                                distant: DistantInput::new(
+                                distant: UpdatableInput::new(
                                     v.distant.to_string(),
                                     &dependancy.0.folder_root,
                                 ),
@@ -197,7 +196,7 @@ impl ConfigManager {
                     });
                 let inputs = inputs_list.add_group(dependancies_declaration);
                 let package_distant =
-                    DistantInput::new(package.path.to_string(), &dependancy.0.folder_root);
+                    UpdatableInput::new(package.path.to_string(), &dependancy.0.folder_root);
                 let mut package_inputs = inputs.iter().fold(BTreeMap::new(), |mut map, (k, v)| {
                     map.insert(escape_string(k), format!("inputs.{}", v));
                     map
@@ -214,7 +213,7 @@ impl ConfigManager {
                 );
                 let package_expression = format!(
                     "(import {} {})",
-                    package_distant.generate_nix_expression(),
+                    package_distant.get_latest().await.generate_nix_fetch(),
                     generate_dict_from_btreemap(&package_inputs)
                 );
                 packages_string.push(package_expression);
@@ -222,7 +221,7 @@ impl ConfigManager {
         }
         format!(
             "{{}}:\nlet\ninputs = rec {};\nin\n{}",
-            generate_dict_from_btreemap(&inputs_list.to_inputs()),
+            generate_dict_from_btreemap(&inputs_list.to_inputs_latest().await),
             to_nix_vec(&packages_string)
         )
     }
