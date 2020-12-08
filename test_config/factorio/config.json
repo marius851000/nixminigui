@@ -64,7 +64,10 @@
 	"effects": {
 		"inputs": {
 			"pkgs": {
-				"distant": "nixpkgs"
+				"distant": {
+					"type": "SystemWide",
+					"package": "nixpkgs"
+				}
 			}
 		},
 		"package": {

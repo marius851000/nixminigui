@@ -64,8 +64,15 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                     }
                     OngoingSaveProgressKind::EnsureFixedLoaded(
                         (inputs_set, link_to_name),
-                        mut position,
+                        position,
                     ) => {
+                        if inputs_set.dependancies.len() <= position {
+                            state.kind = OngoingSaveProgressKind::SavePackageFile((
+                                inputs_set,
+                                link_to_name,
+                            ));
+                            return Some((Some("finished loading fixed input".to_string()), state));
+                        };
                         state
                             .config_manager
                             .ensure_fixed_is_loaded(&inputs_set.dependancies[position].distant)
@@ -74,18 +81,11 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                             "finished to load fixed input from {:?}",
                             &inputs_set.dependancies[position].distant
                         );
-                        position += 1;
-                        if inputs_set.dependancies.len() >= position {
-                            state.kind = OngoingSaveProgressKind::SavePackageFile((
-                                inputs_set,
-                                link_to_name,
-                            ));
-                        } else {
-                            state.kind = OngoingSaveProgressKind::EnsureFixedLoaded(
-                                (inputs_set, link_to_name),
-                                position,
-                            );
-                        }
+
+                        state.kind = OngoingSaveProgressKind::EnsureFixedLoaded(
+                            (inputs_set, link_to_name),
+                            position + 1,
+                        );
                         Some((Some(status), state))
                     }
                     OngoingSaveProgressKind::SavePackageFile((inputs_set, link_to_name)) => {

@@ -1,7 +1,7 @@
 use crate::input::{FixedInput, UpdatableInput};
 use std::collections::BTreeMap;
 
-#[derive(Hash, Default, Clone)]
+#[derive(Hash, Default, Clone, Debug)]
 pub struct CachedFixedInput {
     cache: BTreeMap<UpdatableInput, FixedInput>,
 }

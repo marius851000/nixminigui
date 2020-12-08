@@ -3,7 +3,7 @@ use crate::config_source::{ConfigSource, LoadConfigError};
 
 use crate::input::UpdatableInput;
 
-use crate::inputs_set::{InputDeclaration, InputsSet};
+use crate::inputs_set::InputsSet;
 
 use crate::nixtool::escape_string;
 use crate::nixtool::generate_dict_from_btreemap;
@@ -202,8 +202,11 @@ impl ConfigManager {
                         },
                     )),
                 );
-                let package_distant =
-                    UpdatableInput::new(package.path.to_string(), &dependancy.0.folder_root);
+                let mut package_distant = UpdatableInput::LocalPath {
+                    path: PathBuf::from(package.path.clone()),
+                    is_absolute: false,
+                };
+                package_distant.ensure_path_is_absolute(&dependancy.0.folder_root);
                 let package_expression = format!(
                     "(import {} {})",
                     package_distant.get_latest().await.generate_nix_fetch(),
@@ -247,31 +250,9 @@ impl ConfigManager {
         let mut inputs_set = InputsSet::new();
         let mut inputs = BTreeMap::new();
         for dependancy in self.enabled_entry().iter() {
-            let dependancies_declaration = dependancy
-                .0
-                .entry
-                .effects
-                .inputs
-                .iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        InputDeclaration {
-                            distant: UpdatableInput::new(
-                                v.distant.to_string(),
-                                &dependancy.0.folder_root,
-                            ),
-                            depend_on: v.dependancies.clone(),
-                        },
-                    )
-                })
-                .fold(BTreeMap::new(), |mut map, (k, v)| {
-                    map.insert(k.to_string(), v);
-                    map
-                });
             inputs.insert(
                 dependancy.0.entry.id.to_string(),
-                inputs_set.add_group(dependancies_declaration),
+                inputs_set.add_group(dependancy.0.entry.effects.inputs.clone()),
             );
         }
         (inputs_set, inputs)

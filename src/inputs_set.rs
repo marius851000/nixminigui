@@ -1,15 +1,17 @@
 use crate::input::UpdatableInput;
+use serde::Deserialize;
 use std::collections::BTreeMap;
 
 const SOURCE_PREFIX: &str = "source_";
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Deserialize, Debug)]
 pub struct InputDeclaration {
     pub distant: UpdatableInput,
+    #[serde(default = "Vec::default")]
     pub depend_on: Vec<String>,
 }
 
-#[derive(PartialOrd, PartialEq, Eq, Ord)]
+#[derive(PartialOrd, PartialEq, Eq, Ord, Debug)]
 pub struct InputLoaded {
     pub distant: UpdatableInput,
     pub dependancies: BTreeMap<String, usize>,

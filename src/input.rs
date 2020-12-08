@@ -3,42 +3,51 @@ use std::path::{Path, PathBuf};
 
 use crate::nixtool::escape_string;
 
-#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug, Deserialize)]
+#[serde(tag = "type")]
 pub enum UpdatableInput {
     //Git(repo, ref)
-    LocalPath(PathBuf),
-    SystemWide(String),
+    LocalPath {
+        path: PathBuf,
+        #[serde(default = "bool::default")]
+        is_absolute: bool,
+    },
+    SystemWide {
+        package: String,
+    },
 }
 
 impl UpdatableInput {
-    pub fn new(input: String, base_dir: &Path) -> Self {
-        if let Some(first_char) = input.chars().next() {
-            if first_char == '.' || first_char == '/' || first_char == '~' {
-                let mut path = PathBuf::from(input);
+    pub fn ensure_path_is_absolute(&mut self, base_dir: &Path) {
+        match self {
+            Self::LocalPath { path, .. } => {
+                let mut path = path.clone();
                 if path.is_relative() {
                     path = base_dir.join(&path);
                 };
-                Self::LocalPath(path.canonicalize().unwrap())
-            } else {
-                //TODO: use something better (alias like in flake)
-                Self::SystemWide(input)
+                *self = Self::LocalPath {
+                    path,
+                    is_absolute: true,
+                };
             }
-        } else {
-            panic!("inputs can't be an empty String")
+            _ => (),
         }
     }
 
     pub async fn get_latest(&self) -> FixedInput {
         match self {
-            Self::LocalPath(absolute_path) => {
-                FixedInput::LocalPath(absolute_path.to_string_lossy().to_string())
+            Self::LocalPath { path, is_absolute } => {
+                if !is_absolute {
+                    panic!("updateinput.get_latest, the path {:?} haven't been normalized (explicitly made absolute)", path);
+                };
+                FixedInput::LocalPath(path.to_string_lossy().to_string())
             }
-            Self::SystemWide(input) => FixedInput::SystemWide(input.to_string()),
+            Self::SystemWide { package } => FixedInput::SystemWide(package.to_string()),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Hash, Clone)]
+#[derive(Serialize, Deserialize, Hash, Clone, Debug)]
 pub enum FixedInput {
     /// A path to a local folder or file. The file/folder itself is not fixed !
     LocalPath(String),

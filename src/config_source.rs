@@ -1,4 +1,6 @@
 use crate::gate::Gate;
+
+use crate::inputs_set::InputDeclaration;
 use serde::Deserialize;
 
 use std::collections::BTreeMap;
@@ -6,6 +8,7 @@ use std::fs::File;
 
 use std::io;
 
+use std::path::Path;
 use std::path::PathBuf;
 
 const CONFIG_FILE_NAME: &str = "config.json";
@@ -38,18 +41,17 @@ impl ConfigSource {
     /// root config.json
     pub fn new_from_path(folder_root: PathBuf) -> Result<Self, LoadConfigError> {
         Ok(ConfigSource {
-            entry: ConfigEntry::new_from_path({
-                let mut x = folder_root.clone();
-                x.push(CONFIG_FILE_NAME);
-                x
-            })?,
+            entry: ConfigEntry::new_from_path(
+                {
+                    let mut x = folder_root.clone();
+                    x.push(CONFIG_FILE_NAME);
+                    x
+                },
+                &folder_root,
+            )?,
             folder_root,
         })
     }
-}
-
-fn always_false() -> bool {
-    false
 }
 
 #[derive(Deserialize, Debug, Clone, Hash)]
@@ -64,16 +66,40 @@ pub struct ConfigEntry {
     /// the group of people that manage this config file
     pub maintainers: Vec<String>,
     /// if this configuration source should always be enabled
-    #[serde(default = "always_false")]
+    #[serde(default = "bool::default")]
     pub always_enabled: bool,
     /// if this configuration source should be hidden (it can't be configured)
-    #[serde(default = "always_false")]
+    #[serde(default = "bool::default")]
     pub hidden: bool,
     /// the list of configuration of this configuration source
     #[serde(default = "Vec::new")]
     pub configurations: Vec<Configuration>,
     #[serde(default = "Effects::default")]
     pub effects: Effects,
+}
+
+impl ConfigEntry {
+    pub fn new_from_path(config_path: PathBuf, root_dir: &Path) -> Result<Self, LoadConfigError> {
+        let configuration_file =
+            File::open(&config_path).map_err(|err| LoadConfigError::CantReadFile {
+                path: config_path.clone(),
+                err,
+            })?;
+        let mut deserialized_entry: Self =
+            serde_json::from_reader(&configuration_file).map_err(|err| {
+                LoadConfigError::CantParseFile {
+                    path: config_path,
+                    err,
+                }
+            })?;
+        for _ in deserialized_entry
+            .effects
+            .inputs
+            .iter_mut()
+            .map(|(_, v)| v.distant.ensure_path_is_absolute(root_dir))
+        {}
+        Ok(deserialized_entry)
+    }
 }
 
 #[derive(Deserialize, Debug, Clone, Hash)]
@@ -97,7 +123,7 @@ pub enum ConfigurationKind {
     /// a checkbox
     Checkbox {
         /// the default value of this checkbox
-        #[serde(default = "always_false")]
+        #[serde(default = "bool::default")]
         default: bool,
     },
     /// a radio box list
@@ -137,35 +163,11 @@ pub struct RadioButtonPosibility {
     pub id: String,
 }
 
-impl ConfigEntry {
-    pub fn new_from_path(config_path: PathBuf) -> Result<Self, LoadConfigError> {
-        let configuration_file =
-            File::open(&config_path).map_err(|err| LoadConfigError::CantReadFile {
-                path: config_path.clone(),
-                err,
-            })?;
-        let deserialized_entry = serde_json::from_reader(&configuration_file).map_err(|err| {
-            LoadConfigError::CantParseFile {
-                path: config_path,
-                err,
-            }
-        })?;
-        Ok(deserialized_entry)
-    }
-}
-
 #[derive(Default, Deserialize, Hash, Debug, Clone)]
 pub struct Effects {
     #[serde(default = "BTreeMap::default")]
-    pub inputs: BTreeMap<String, InputDeclarationStorage>,
+    pub inputs: BTreeMap<String, InputDeclaration>,
     pub package: Option<PackageEffect>,
-}
-
-#[derive(Default, Deserialize, Hash, Debug, Clone)]
-pub struct InputDeclarationStorage {
-    pub distant: String,
-    #[serde(default = "Vec::new")]
-    pub dependancies: Vec<String>,
 }
 
 #[derive(Deserialize, Hash, Debug, Clone)]
