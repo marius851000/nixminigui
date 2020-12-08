@@ -31,6 +31,7 @@ enum OngoingSaveProgressKind {
         usize,
     ),
     SavePackageFile((InputsSet, BTreeMap<String, BTreeMap<String, String>>)),
+    SaveLock,
     Finished,
     Final,
 }
@@ -93,8 +94,13 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                             .config_manager
                             .write_nix_package_file(&inputs_set, &link_to_name)
                             .await;
-                        state.kind = OngoingSaveProgressKind::Finished;
+                        state.kind = OngoingSaveProgressKind::SaveLock;
                         Some((Some("wrote nix package file".to_string()), state))
+                    }
+                    OngoingSaveProgressKind::SaveLock => {
+                        state.config_manager.write_lock().await;
+                        state.kind = OngoingSaveProgressKind::Finished;
+                        Some((Some("wrote lock file".to_string()), state))
                     }
                     OngoingSaveProgressKind::Finished => {
                         state.kind = OngoingSaveProgressKind::Final;

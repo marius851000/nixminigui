@@ -2,3 +2,4 @@ target/
 nixminigui.json
 result*
 packages.nix
+lockfile.json

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 
 use crate::nixtool::escape_string;
 
-#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum UpdatableInput {
     //Git(repo, ref)

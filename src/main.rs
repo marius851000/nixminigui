@@ -6,6 +6,7 @@ use std::path::PathBuf;
 fn main() {
     let mut config_manager = ConfigManager::new(
         PathBuf::from("./nixminigui.json"),
+        PathBuf::from("./lockfile.json"),
         PathBuf::from("./packages.nix"),
     );
     config_manager.load_config();

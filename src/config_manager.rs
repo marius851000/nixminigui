@@ -20,6 +20,7 @@ pub struct ConfigManager {
     configs: Vec<(Option<ConfigSource>, bool, UserConfiguration)>, //source, enabled, additional configuration
     key_to_id: BTreeMap<String, usize>,
     user_config_path: PathBuf,
+    lock_file: PathBuf,
     package_nix_path: PathBuf,
     cached_fixed_input: CachedFixedInput,
 }
@@ -27,11 +28,12 @@ pub struct ConfigManager {
 //TODO: timed cache for updatable_input (key: the updateinput, out: the fixedinput)
 
 impl ConfigManager {
-    pub fn new(user_config_path: PathBuf, package_nix_path: PathBuf) -> Self {
+    pub fn new(user_config_path: PathBuf, lock_file: PathBuf, package_nix_path: PathBuf) -> Self {
         Self {
             configs: Vec::new(),
             key_to_id: BTreeMap::new(),
             user_config_path,
+            lock_file,
             package_nix_path,
             cached_fixed_input: CachedFixedInput::new(),
         }
@@ -274,5 +276,9 @@ impl ConfigManager {
                 self.configs.push((None, *enabled, config.clone()));
             }
         }
+    }
+
+    pub async fn write_lock(&self) {
+        self.cached_fixed_input.write_lock(&self.lock_file).await;
     }
 }
