@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 
 use async_std::fs::File;
 use async_std::io::prelude::WriteExt;
-use serde::{Deserialize, Serialize};
 
 #[derive(Hash, Default, Clone, Debug)]
 pub struct CachedFixedInput {
@@ -46,5 +45,19 @@ impl CachedFixedInput {
             });
         let to_write = serde_json::to_vec_pretty(&to_serialize).unwrap();
         file.write_all(&to_write).await.unwrap();
+    }
+
+    pub fn new_from_lock(lock_file: &std::path::Path) -> Self {
+        let file = std::fs::File::open(lock_file).unwrap();
+        let mut deserialized: Vec<(UpdatableInput, FixedInput)> =
+            serde_json::from_reader(&file).unwrap();
+        Self {
+            cache: deserialized
+                .drain(..)
+                .fold(BTreeMap::new(), |mut map, (k, v)| {
+                    map.insert(k, v);
+                    map
+                }),
+        }
     }
 }

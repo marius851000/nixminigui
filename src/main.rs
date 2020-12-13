@@ -10,6 +10,7 @@ fn main() {
         PathBuf::from("./packages.nix"),
     );
     config_manager.load_config();
+    config_manager.load_lock();
     config_manager
         .add_configuration_source_from_path(PathBuf::from("./test_config/minetest"))
         .unwrap();

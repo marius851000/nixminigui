@@ -281,4 +281,8 @@ impl ConfigManager {
     pub async fn write_lock(&self) {
         self.cached_fixed_input.write_lock(&self.lock_file).await;
     }
+
+    pub fn load_lock(&mut self) {
+        self.cached_fixed_input = CachedFixedInput::new_from_lock(&self.lock_file);
+    }
 }
