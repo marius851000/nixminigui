@@ -36,8 +36,13 @@ enum OngoingSaveProgressKind {
     Final,
 }
 
+#[derive(Debug, Clone)]
+pub enum OngoingSaveProgressMessage {
+    Done(String),
+}
+
 impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
-    type Output = Option<String>;
+    type Output = Option<OngoingSaveProgressMessage>;
 
     fn hash(&self, state: &mut H) {
         std::any::TypeId::of::<Self>().hash(state);
@@ -55,13 +60,23 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                     OngoingSaveProgressKind::SaveToConfigFile => {
                         state.config_manager.save_to_config_file().await;
                         state.kind = OngoingSaveProgressKind::GenerateInputsSet;
-                        Some((Some("configuration saved".to_string()), state))
+                        Some((
+                            Some(OngoingSaveProgressMessage::Done(
+                                "configuration saved".to_string(),
+                            )),
+                            state,
+                        ))
                     }
                     OngoingSaveProgressKind::GenerateInputsSet => {
                         let inputs_set =
                             state.config_manager.generate_inputs_set_for_enabled().await;
                         state.kind = OngoingSaveProgressKind::EnsureFixedLoaded(inputs_set, 0);
-                        Some((Some("inputs set generated".to_string()), state))
+                        Some((
+                            Some(OngoingSaveProgressMessage::Done(
+                                "inputs set generated".to_string(),
+                            )),
+                            state,
+                        ))
                     }
                     OngoingSaveProgressKind::EnsureFixedLoaded(
                         (inputs_set, link_to_name),
@@ -72,7 +87,12 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                                 inputs_set,
                                 link_to_name,
                             ));
-                            return Some((Some("finished loading fixed input".to_string()), state));
+                            return Some((
+                                Some(OngoingSaveProgressMessage::Done(
+                                    "finished loading fixed input".to_string(),
+                                )),
+                                state,
+                            ));
                         };
                         state
                             .config_manager
@@ -87,7 +107,7 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                             (inputs_set, link_to_name),
                             position + 1,
                         );
-                        Some((Some(status), state))
+                        Some((Some(OngoingSaveProgressMessage::Done(status)), state))
                     }
                     OngoingSaveProgressKind::SavePackageFile((inputs_set, link_to_name)) => {
                         state
@@ -95,12 +115,22 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                             .write_nix_package_file(&inputs_set, &link_to_name)
                             .await;
                         state.kind = OngoingSaveProgressKind::SaveLock;
-                        Some((Some("wrote nix package file".to_string()), state))
+                        Some((
+                            Some(OngoingSaveProgressMessage::Done(
+                                "wrote nix package file".to_string(),
+                            )),
+                            state,
+                        ))
                     }
                     OngoingSaveProgressKind::SaveLock => {
                         state.config_manager.write_lock().await;
                         state.kind = OngoingSaveProgressKind::Finished;
-                        Some((Some("wrote lock file".to_string()), state))
+                        Some((
+                            Some(OngoingSaveProgressMessage::Done(
+                                "wrote lock file".to_string(),
+                            )),
+                            state,
+                        ))
                     }
                     OngoingSaveProgressKind::Finished => {
                         state.kind = OngoingSaveProgressKind::Final;

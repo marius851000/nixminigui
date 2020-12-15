@@ -1,6 +1,7 @@
 use crate::config_manager::ConfigManager;
 use crate::config_source::ConfigSource;
 use crate::gui::DisplayedConfiguration;
+use crate::ongoing_save::OngoingSaveProgressMessage;
 
 use iced::Container;
 use iced::Length;
@@ -107,7 +108,7 @@ impl Application for NixMiniGuiApp {
                 self.displayed_section =
                     DisplayedSection::new_progress_report("starting...".into());
             }
-            Message::SetSaveProgress(Some(progress_text)) => {
+            Message::SetSaveProgress(Some(OngoingSaveProgressMessage::Done(progress_text))) => {
                 self.displayed_section = DisplayedSection::new_progress_report(progress_text);
             }
             Message::SetSaveProgress(None) => {

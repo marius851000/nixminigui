@@ -9,6 +9,7 @@ pub struct AppSetting {
     pub config_manager: ConfigManager,
 }
 
+use crate::ongoing_save::OngoingSaveProgressMessage;
 #[derive(Debug, Clone)]
 pub enum Message {
     SwitchScreenInstallNew,
@@ -19,7 +20,7 @@ pub enum Message {
     ConfigurePackage(String),
     SetConfiguration(String, String, String), //config key, id, value
     ValidateChange,
-    SetSaveProgress(Option<String>),
+    SetSaveProgress(Option<OngoingSaveProgressMessage>),
     Ignore,
     Todo,
 }
