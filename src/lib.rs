@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate quick_error;
 
+pub mod async_command;
 pub mod cached_fixed_input;
 pub mod config_manager;
 pub mod config_source;

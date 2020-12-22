@@ -111,6 +111,11 @@ impl Application for NixMiniGuiApp {
             Message::SetSaveProgress(Some(OngoingSaveProgressMessage::Done(progress_text))) => {
                 self.displayed_section = DisplayedSection::new_progress_report(progress_text);
             }
+            Message::SetSaveProgress(Some(OngoingSaveProgressMessage::Log(desc, log))) => {
+                //TODO: more specialized message
+                self.displayed_section =
+                    DisplayedSection::new_progress_report(format!("{} :\n{}", desc, log));
+            }
             Message::SetSaveProgress(None) => {
                 self.displayed_section = DisplayedSection::new_apply_finished();
             }

@@ -1,12 +1,17 @@
+use crate::async_command::AsyncCommand;
 use crate::config_manager::ConfigManager;
-
 use crate::inputs_set::InputsSet;
+
 use futures::stream::unfold;
 use futures::stream::BoxStream;
 use iced_futures::subscription::Recipe;
 
 use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
+
+use async_std::io::ErrorKind;
+use async_std::process::Command;
 
 pub struct OngoingSave {
     config_manager: ConfigManager,
@@ -31,6 +36,7 @@ enum OngoingSaveProgressKind {
         usize,
     ),
     SavePackageFile((InputsSet, BTreeMap<String, BTreeMap<String, String>>)),
+    TryFormatPackage(PathBuf, Option<AsyncCommand>),
     SaveLock,
     Finished,
     Final,
@@ -39,6 +45,7 @@ enum OngoingSaveProgressKind {
 #[derive(Debug, Clone)]
 pub enum OngoingSaveProgressMessage {
     Done(String),
+    Log(String, String),
 }
 
 impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
@@ -110,17 +117,64 @@ impl<H: Hasher, I> Recipe<H, I> for OngoingSave {
                         Some((Some(OngoingSaveProgressMessage::Done(status)), state))
                     }
                     OngoingSaveProgressKind::SavePackageFile((inputs_set, link_to_name)) => {
-                        state
+                        let package_path = state
                             .config_manager
                             .write_nix_package_file(&inputs_set, &link_to_name)
                             .await;
-                        state.kind = OngoingSaveProgressKind::SaveLock;
+                        state.kind = OngoingSaveProgressKind::TryFormatPackage(package_path, None);
                         Some((
                             Some(OngoingSaveProgressMessage::Done(
                                 "wrote nix package file".to_string(),
                             )),
                             state,
                         ))
+                    }
+                    OngoingSaveProgressKind::TryFormatPackage(package_path, status) => {
+                        let mut status = if let Some(status) = status {
+                            status
+                        } else {
+                            let mut command = Command::new("nixfmt");
+                            command.arg(package_path.clone().into_os_string());
+                            match AsyncCommand::new(command) {
+                                Ok(value) => value,
+                                Err(err) => match err.kind() {
+                                    ErrorKind::NotFound => {
+                                        state.kind = OngoingSaveProgressKind::SaveLock;
+                                        return Some((
+                                            Some(OngoingSaveProgressMessage::Done(
+                                                "nixfmt not found, not performing formatting"
+                                                    .to_string(),
+                                            )),
+                                            state,
+                                        ));
+                                    }
+                                    _ => todo!("{:?} running nixfmt", err),
+                                },
+                            }
+                        };
+                        let (log, finished) = status.update_and_get_log().await;
+                        if finished {
+                            state.kind = OngoingSaveProgressKind::SaveLock;
+                            Some((
+                                Some(OngoingSaveProgressMessage::Done(
+                                    "finished to format package".to_string(),
+                                )),
+                                state,
+                            ))
+                        } else {
+                            let log = log.to_string();
+                            state.kind = OngoingSaveProgressKind::TryFormatPackage(
+                                package_path,
+                                Some(status),
+                            );
+                            Some((
+                                Some(OngoingSaveProgressMessage::Log(
+                                    "running nixfmt".to_string(),
+                                    log, //TODO: find some alternative that doesn't involve copy
+                                )),
+                                state,
+                            ))
+                        }
                     }
                     OngoingSaveProgressKind::SaveLock => {
                         state.config_manager.write_lock().await;

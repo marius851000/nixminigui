@@ -13,4 +13,7 @@ quick-error = "1.2.3" #TODO: use someerror instead
 iced = "0.2"
 iced_futures = "0.2"
 futures = "0.3.8"
-async-std = "1.7.0"
+
+[dependencies.async-std]
+version = "1.8.0"
+features = ["unstable"] #for the process API

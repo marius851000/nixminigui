@@ -168,7 +168,7 @@ impl ConfigManager {
         &self,
         input_set: &InputsSet,
         link_to_name: &BTreeMap<String, BTreeMap<String, String>>,
-    ) {
+    ) -> PathBuf {
         let package_file = self
             .generate_nix_package_file(input_set, link_to_name)
             .await;
@@ -176,6 +176,7 @@ impl ConfigManager {
         use async_std::prelude::*;
         let mut file = File::create(&self.package_nix_path).await.unwrap();
         file.write_all(package_file.as_bytes()).await.unwrap();
+        self.package_nix_path.clone()
     }
 
     pub async fn generate_nix_package_file(
